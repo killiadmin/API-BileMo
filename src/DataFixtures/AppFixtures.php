@@ -2,6 +2,7 @@
 
 namespace App\DataFixtures;
 
+use App\Entity\User;
 use App\Entity\Product;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
@@ -20,6 +21,16 @@ class AppFixtures extends Fixture
             $product->setDescription($faker->paragraph);
             $product->setPrice($faker->randomFloat(2, 0, 1000));
             $manager->persist($product);
+        }
+
+        // Creation of 20 clients with 10 users associated
+        for ($i=0; $i < 20; $i++) {
+            $client = new User();
+            $client->setCompany($faker->company);
+            $client->setEmail($faker->unique()->safeEmail);
+            $client->setPassword($faker->password());
+            $client->setRoles(['ROLES_ADMIN']);
+            $manager->persist($client);
         }
 
         $manager->flush();
