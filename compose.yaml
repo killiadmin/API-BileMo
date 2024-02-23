@@ -1,0 +1,12 @@
+version: '3.7'
+
+services:
+  database:
+    image: 'mysql:8'
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: main
+    ports:
+      - "2043:3306"
+    volumes:
+      - ../database/API-BileMo:/var/lib/mysql
