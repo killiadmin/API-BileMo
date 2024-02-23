@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\UserRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -11,29 +13,34 @@ use Symfony\Component\Serializer\Annotation\Groups;
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
-    #[Groups("buyers")]
+    #[Groups("buyer")]
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
 
-    #[Groups("buyers")]
+    #[Groups("buyer")]
     #[ORM\Column(length: 180, unique: true)]
     private ?string $email = null;
 
-    #[Groups("buyers")]
+    #[Groups("buyer")]
     #[ORM\Column(length: 255)]
     private ?string $company = null;
 
-    #[Groups("buyers")]
+    #[Groups("buyer")]
     #[ORM\Column]
     private array $roles = [];
 
-    /**
-     * @var string The hashed password
-     */
     #[ORM\Column]
     private ?string $password = null;
+
+    #[ORM\OneToMany(targetEntity: Buyer::class, mappedBy: 'company_associated', orphanRemoval: true)]
+    private Collection $buyers;
+
+    public function __construct()
+    {
+        $this->buyers = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -130,5 +137,35 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function __toString(): string
     {
         return $this->company;
+    }
+
+    /**
+     * @return Collection<int, Buyer>
+     */
+    public function getBuyers(): Collection
+    {
+        return $this->buyers;
+    }
+
+    public function addBuyer(Buyer $buyer): static
+    {
+        if (!$this->buyers->contains($buyer)) {
+            $this->buyers->add($buyer);
+            $buyer->setCompanyAssociated($this);
+        }
+
+        return $this;
+    }
+
+    public function removeBuyer(Buyer $buyer): static
+    {
+        if ($this->buyers->removeElement($buyer)) {
+            // set the owning side to null (unless already changed)
+            if ($buyer->getCompanyAssociated() === $this) {
+                $buyer->setCompanyAssociated(null);
+            }
+        }
+
+        return $this;
     }
 }
