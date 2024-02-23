@@ -35,6 +35,7 @@ class Buyer
     #[ORM\Column(length: 255)]
     private ?string $phone = null;
 
+    #[Groups("buyer")]
     #[ORM\ManyToOne(inversedBy: 'buyers')]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $company_associated = null;
