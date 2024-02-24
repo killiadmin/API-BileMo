@@ -5,6 +5,7 @@ namespace App\Entity;
 use App\Repository\BuyerRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: BuyerRepository::class)]
 class Buyer
@@ -17,22 +18,57 @@ class Buyer
 
     #[Groups("buyer")]
     #[ORM\Column(length: 255)]
+    #[Assert\NotBlank(message: "The firstname must be entered")]
+    #[Assert\Length(
+        min: 1,
+        max: 255,
+        minMessage: "The firstname must be at least {{ limit }} characters",
+        maxMessage: "The firstname cannot be more than {{ limit }} characters"
+    )]
     private ?string $firstname = null;
 
     #[Groups("buyer")]
     #[ORM\Column(length: 255)]
+    #[Assert\NotBlank(message: "The lastname must be entered")]
+    #[Assert\Length(
+        min: 1,
+        max: 255,
+        minMessage: "The lastname must be at least {{ limit }} characters",
+        maxMessage: "The lastname cannot be more than {{ limit }} characters"
+    )]
     private ?string $lastname = null;
 
     #[Groups("buyer")]
     #[ORM\Column(length: 255)]
+    #[Assert\NotBlank(message: "The email must be entered")]
+    #[Assert\Length(
+        min: 1,
+        max: 255,
+        minMessage: "The email must be at least {{ limit }} characters",
+        maxMessage: "The email cannot be more than {{ limit }} characters"
+    )]
     private ?string $email = null;
 
     #[Groups("buyer")]
     #[ORM\Column(length: 255)]
+    #[Assert\NotBlank(message: "The address must be entered")]
+    #[Assert\Length(
+        min: 1,
+        max: 255,
+        minMessage: "The address must be at least {{ limit }} characters",
+        maxMessage: "The address cannot be more than {{ limit }} characters"
+    )]
     private ?string $address = null;
 
     #[Groups("buyer")]
     #[ORM\Column(length: 255)]
+    #[Assert\NotBlank(message: "The phone number must be entered")]
+    #[Assert\Length(
+        min: 1,
+        max: 255,
+        minMessage: "The phone number must be at least {{ limit }} characters",
+        maxMessage: "The phone number cannot be more than {{ limit }} characters"
+    )]
     private ?string $phone = null;
 
     #[Groups("buyer")]
