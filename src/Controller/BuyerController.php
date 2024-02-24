@@ -6,6 +6,8 @@ use App\Entity\Buyer;
 use App\Repository\BuyerRepository;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Lexik\Bundle\JWTAuthenticationBundle\Encoder\JWTEncoderInterface;
+use Lexik\Bundle\JWTAuthenticationBundle\Exception\JWTDecodeFailureException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -25,7 +27,11 @@ class BuyerController extends AbstractController
      * @return JsonResponse  The JSON response containing the serialized buyer list.
      */
     #[Route('/api/buyers', name: 'app_buyers')]
-    public function getAllProducts(BuyerRepository $buyerRepository, SerializerInterface $serializer): JsonResponse
+    public function getAllProducts
+    (
+        BuyerRepository     $buyerRepository,
+        SerializerInterface $serializer
+    ): JsonResponse
     {
         $buyerList = $buyerRepository->findAll();
         $context = ['groups' => ['buyer']];
@@ -46,7 +52,11 @@ class BuyerController extends AbstractController
      * @throws NotFoundHttpException If the buyer is not found.
      */
     #[Route('/api/buyer/{id}', name: 'app_buyer', methods: ['GET'])]
-    public function getDetailBuyer(Buyer $buyer, SerializerInterface $serializer): JsonResponse
+    public function getDetailBuyer
+    (
+        Buyer               $buyer,
+        SerializerInterface $serializer
+    ): JsonResponse
     {
         $context = ['groups' => ['buyer']];
         $jsonBuyer = $serializer->serialize($buyer, 'json', $context);
@@ -54,42 +64,61 @@ class BuyerController extends AbstractController
     }
 
     /**
-     * Adds a new buyer to the database.
+     * Adds a new buyer to the system.
      *
      * @param Request $request The HTTP request object.
      * @param EntityManagerInterface $entityManager The entity manager.
-     * @param UserRepository $userRepository The repository for the User entity.
+     * @param UserRepository $userRepository The user repository.
+     * @param JWTEncoderInterface $jwtEncoder The JWT encoder.
      *
-     * @return Response The HTTP response indicating the status of the operation.
-     * @throws \JsonException
+     * @return Response The HTTP response.
+     * @throws \JsonException|JWTDecodeFailureException
      */
     #[Route('/api/buyer/new', name: 'newBuyer', methods: ['POST'])]
-    public function addBuyer(Request $request, EntityManagerInterface $entityManager, UserRepository $userRepository): Response {
+    public function addBuyer
+    (
+        Request                $request,
+        EntityManagerInterface $entityManager,
+        UserRepository         $userRepository,
+        JWTEncoderInterface    $jwtEncoder
+    ): Response
+    {
         $data = $request->getContent();
-        // Let's decode JSON data to an array
         $dataArray = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
 
-        // Let's create an instance of the Buyer entity
         $buyer = new Buyer();
-        $buyer->setFirstname($dataArray['firstname_identifier']);
-        $buyer->setLastname($dataArray['lastname_identifier']);
+        $buyer->setFirstname($dataArray['firstname']);
+        $buyer->setLastname($dataArray['lastname']);
         $buyer->setEmail($dataArray['email']);
         $buyer->setAddress($dataArray['address']);
         $buyer->setPhone($dataArray['phone']);
 
+        // Extracting the token from Authentication header
+        $token = explode(' ', $request->headers->get('Authorization'))[1];
 
-        // Let's get and add the User entity instance
-        $user = $userRepository->find($dataArray['idClientAssociated']);
-
-        if ($user === null) {
-            return new JsonResponse(['error' => 'User not found'], Response::HTTP_NOT_FOUND);
+        if (empty($token)) {
+            return new JsonResponse([
+                'error' => 'There was a problem creating the buyer'
+            ], Response::HTTP_NOT_FOUND);
         }
 
-        $buyer->setCompanyAssociated($user);
+        // Decoding the token
+        $decodedToken = $jwtEncoder->decode($token);
+
+        // Extracting company mail from token
+        $companyName = $decodedToken['username'];
+
+        $company = $userRepository->findOneBy(['email' => $companyName]);
+
+        if ($company !== null) {
+            $buyer->setCompanyAssociated($company);
+        } else {
+            return new JsonResponse(['error' => 'Company not found'], Response::HTTP_NOT_FOUND);
+        }
 
         $entityManager->persist($buyer);
         $entityManager->flush();
 
-        return new JsonResponse(['status' => 'User created'], Response::HTTP_CREATED, []);
+        return new JsonResponse(['status' => 'Buyer created'], Response::HTTP_CREATED);
     }
 }
