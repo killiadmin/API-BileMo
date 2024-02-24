@@ -21,7 +21,11 @@ class ProductController extends AbstractController
      * @return JsonResponse The response containing the list of products in JSON format.
      */
     #[Route('/api/products', name: 'app_products')]
-    public function getAllProducts(ProductRepository $productRepository, SerializerInterface $serializer): JsonResponse
+    public function getAllProducts
+    (
+        ProductRepository   $productRepository,
+        SerializerInterface $serializer
+    ): JsonResponse
     {
         $productsList = $productRepository->findAll();
         $jsonProductsList = $serializer->serialize($productsList, 'json');
@@ -38,7 +42,11 @@ class ProductController extends AbstractController
      * @return JsonResponse The response containing the product details in JSON format.
      */
     #[Route('/api/product/{id}', name: 'app_product', methods: ['GET'])]
-    public function getDetailProduct(Product $product, SerializerInterface $serializer): JsonResponse
+    public function getDetailProduct
+    (
+        Product             $product,
+        SerializerInterface $serializer
+    ): JsonResponse
     {
         $jsonProduct = $serializer->serialize($product, 'json');
         return new JsonResponse($jsonProduct, Response::HTTP_OK, [], true);

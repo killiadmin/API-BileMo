@@ -38,7 +38,7 @@ class AppFixtures extends Fixture
             $user->setCompany($faker->company);
             $user->setEmail($faker->unique()->safeEmail);
             $user->setPassword($this->passwordHasher->hashPassword($user, "password"));
-            $user->setRoles(['ROLE_ADMIN']);
+            $user->setRoles(['ROLES_ADMIN']);
             $manager->persist($user);
 
             for ($j=0; $j < 10; $j++) {
