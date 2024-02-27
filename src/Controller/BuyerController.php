@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
@@ -45,14 +46,15 @@ class BuyerController extends AbstractController
 
         $idCache = "getAllBuyers-" . $page . "-" . $limit;
 
-        $jsonBookList = $cache->get($idCache, function (ItemInterface $item) use ($buyerRepository, $page, $limit, $serializer) {
+        $jsonBuyerList = $cache->get($idCache, function (ItemInterface $item) use ($buyerRepository, $page, $limit, $serializer) {
             $item->tag("buyersCache");
+            $item->expiresAfter(3600);
             $buyerList = $buyerRepository->findAllWithPagination($page, $limit);
             $context = ['groups' => ['buyer']];
             return $serializer->serialize($buyerList, 'json', $context);
         });
 
-        return new JsonResponse($jsonBookList, Response::HTTP_OK, [], true);
+        return new JsonResponse($jsonBuyerList, Response::HTTP_OK, [], true);
     }
 
 
@@ -135,5 +137,25 @@ class BuyerController extends AbstractController
         $entityManager->flush();
 
         return new JsonResponse(['status' => 'Buyer created'], Response::HTTP_CREATED);
+    }
+
+    /**
+     * Deletes a buyer from the system.
+     *
+     * @param Buyer $buyer The buyer to delete.
+     * @param EntityManagerInterface $em The entity manager.
+     * @param TagAwareCacheInterface $cachePool The cache pool.
+     *
+     * @return JsonResponse The JSON response.
+     * @throws InvalidArgumentException
+     */
+    #[Route('/api/buyer/{id}', name: 'deleteBuyer', methods: ['DELETE'])]
+    #[IsGranted('ROLES_ADMIN', message: 'You do not have sufficient rights to delete a buyer')]
+    public function deleteBuyer(Buyer $buyer, EntityManagerInterface $em, TagAwareCacheInterface $cachePool): JsonResponse
+    {
+        $cachePool->invalidateTags(['buyersCache']);
+        $em->remove($buyer);
+        $em->flush();
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 }
