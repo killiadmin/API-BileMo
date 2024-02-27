@@ -8,6 +8,7 @@ use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Encoder\JWTEncoderInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Exception\JWTDecodeFailureException;
+use Psr\Cache\InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,29 +16,43 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
 
 class BuyerController extends AbstractController
 {
     /**
-     * Retrieves all products.
+     * Retrieves a list of all buyers from the system.
      *
-     * @param BuyerRepository $buyerRepository The repository for accessing buyer data.
-     * @param SerializerInterface $serializer The serializer for converting buyer data to JSON.
-     *
-     * @return JsonResponse  The JSON response containing the serialized buyer list.
+     * @param BuyerRepository $buyerRepository The buyer repository.
+     * @param SerializerInterface $serializer The serializer.
+     * @param Request $request The HTTP request object.
+     * @param TagAwareCacheInterface $cache
+     * @return JsonResponse The JSON response containing the list of buyers.
+     * @throws InvalidArgumentException
      */
     #[Route('/api/buyers', name: 'app_buyers')]
-    public function getAllProducts
+    public function getAllBuyers
     (
-        BuyerRepository     $buyerRepository,
-        SerializerInterface $serializer
+        BuyerRepository        $buyerRepository,
+        SerializerInterface    $serializer,
+        Request                $request,
+        TagAwareCacheInterface $cache
     ): JsonResponse
     {
-        $buyerList = $buyerRepository->findAll();
-        $context = ['groups' => ['buyer']];
-        $jsonBuyerList = $serializer->serialize($buyerList, 'json', $context);
+        $page = $request->get('page', 1);
+        $limit = $request->get('limit', 3);
 
-        return new JsonResponse($jsonBuyerList, Response::HTTP_OK, [], true);
+        $idCache = "getAllBuyers-" . $page . "-" . $limit;
+
+        $jsonBookList = $cache->get($idCache, function (ItemInterface $item) use ($buyerRepository, $page, $limit, $serializer) {
+            $item->tag("buyersCache");
+            $buyerList = $buyerRepository->findAllWithPagination($page, $limit);
+            $context = ['groups' => ['buyer']];
+            return $serializer->serialize($buyerList, 'json', $context);
+        });
+
+        return new JsonResponse($jsonBookList, Response::HTTP_OK, [], true);
     }
 
 
