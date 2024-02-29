@@ -4,19 +4,39 @@ namespace App\Entity;
 
 use App\Repository\BuyerRepository;
 use Doctrine\ORM\Mapping as ORM;
-use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
+use JMS\Serializer\Annotation\Groups;
+use Hateoas\Configuration\Annotation as Hateoas;
 
+/**
+ * @Hateoas\Relation(
+ *      "self",
+ *      href = @Hateoas\Route(
+ *          "detailBuyer",
+ *          parameters = { "id" = "expr(object.getId())" }
+ *      ),
+ *      exclusion = @Hateoas\Exclusion(groups="buyer")
+ * )
+ *
+ * @Hateoas\Relation(
+ *       "delete",
+ *       href = @Hateoas\Route(
+ *           "deleteBuyer",
+ *           parameters = { "id" = "expr(object.getId())" },
+ *       ),
+ *       exclusion = @Hateoas\Exclusion(groups="buyer", excludeIf = "expr(not is_granted('ROLES_ADMIN'))"),
+ *  )
+ */
 #[ORM\Entity(repositoryClass: BuyerRepository::class)]
 class Buyer
 {
-    #[Groups("buyer")]
+    #[Groups(["buyer"])]
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
 
-    #[Groups("buyer")]
+    #[Groups(["buyer"])]
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: "The firstname must be entered")]
     #[Assert\Length(
@@ -27,7 +47,7 @@ class Buyer
     )]
     private ?string $firstname = null;
 
-    #[Groups("buyer")]
+    #[Groups(["buyer"])]
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: "The lastname must be entered")]
     #[Assert\Length(
@@ -38,7 +58,7 @@ class Buyer
     )]
     private ?string $lastname = null;
 
-    #[Groups("buyer")]
+    #[Groups(["buyer"])]
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: "The email must be entered")]
     #[Assert\Length(
@@ -49,7 +69,7 @@ class Buyer
     )]
     private ?string $email = null;
 
-    #[Groups("buyer")]
+    #[Groups(["buyer"])]
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: "The address must be entered")]
     #[Assert\Length(
@@ -60,7 +80,7 @@ class Buyer
     )]
     private ?string $address = null;
 
-    #[Groups("buyer")]
+    #[Groups(["buyer"])]
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: "The phone number must be entered")]
     #[Assert\Length(
@@ -71,7 +91,7 @@ class Buyer
     )]
     private ?string $phone = null;
 
-    #[Groups("buyer")]
+    #[Groups(["buyer"])]
     #[ORM\ManyToOne(inversedBy: 'buyers')]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $company_associated = null;
