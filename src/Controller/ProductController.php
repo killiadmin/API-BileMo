@@ -10,9 +10,9 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
+use JMS\Serializer\SerializerInterface;
 
 class ProductController extends AbstractController
 {
@@ -27,7 +27,7 @@ class ProductController extends AbstractController
      * @return JsonResponse The JSON response containing all products.
      * @throws InvalidArgumentException
      */
-    #[Route('/api/products', name: 'app_products')]
+    #[Route('/api/products', name: 'products')]
     public function getAllProducts
     (
         ProductRepository      $productRepository,
@@ -59,7 +59,7 @@ class ProductController extends AbstractController
      *
      * @return JsonResponse The response containing the product details in JSON format.
      */
-    #[Route('/api/product/{id}', name: 'app_product', methods: ['GET'])]
+    #[Route('/api/product/{id}', name: 'detailProduct', methods: ['GET'])]
     public function getDetailProduct
     (
         Product             $product,

@@ -16,9 +16,10 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
+use JMS\Serializer\SerializerInterface;
+use JMS\Serializer\SerializationContext;
 
 class BuyerController extends AbstractController
 {
@@ -47,10 +48,10 @@ class BuyerController extends AbstractController
         $idCache = "getAllBuyers-" . $page . "-" . $limit;
 
         $jsonBuyerList = $cache->get($idCache, function (ItemInterface $item) use ($buyerRepository, $page, $limit, $serializer) {
-            $item->tag("buyersCache");
+            $item->tag('buyersCache');
             $item->expiresAfter(3600);
             $buyerList = $buyerRepository->findAllWithPagination($page, $limit);
-            $context = ['groups' => ['buyer']];
+            $context = SerializationContext::create()->setGroups(['buyer']);
             return $serializer->serialize($buyerList, 'json', $context);
         });
 
@@ -68,14 +69,14 @@ class BuyerController extends AbstractController
      *
      * @throws NotFoundHttpException If the buyer is not found.
      */
-    #[Route('/api/buyer/{id}', name: 'app_buyer', methods: ['GET'])]
+    #[Route('/api/buyer/{id}', name: 'detailBuyer', methods: ['GET'])]
     public function getDetailBuyer
     (
         Buyer               $buyer,
         SerializerInterface $serializer
     ): JsonResponse
     {
-        $context = ['groups' => ['buyer']];
+        $context = SerializationContext::create()->setGroups(['buyer']);
         $jsonBuyer = $serializer->serialize($buyer, 'json', $context);
         return new JsonResponse($jsonBuyer, Response::HTTP_OK, [], true);
     }
@@ -151,7 +152,12 @@ class BuyerController extends AbstractController
      */
     #[Route('/api/buyer/{id}', name: 'deleteBuyer', methods: ['DELETE'])]
     #[IsGranted('ROLES_ADMIN', message: 'You do not have sufficient rights to delete a buyer')]
-    public function deleteBuyer(Buyer $buyer, EntityManagerInterface $em, TagAwareCacheInterface $cachePool): JsonResponse
+    public function deleteBuyer
+    (
+        Buyer                  $buyer,
+        EntityManagerInterface $em,
+        TagAwareCacheInterface $cachePool
+    ): JsonResponse
     {
         $cachePool->invalidateTags(['buyersCache']);
         $em->remove($buyer);

@@ -8,26 +8,26 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
-use Symfony\Component\Serializer\Annotation\Groups;
+use JMS\Serializer\Annotation\Groups;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
-    #[Groups("buyer")]
+    #[Groups(["buyer"])]
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
 
-    #[Groups("buyer")]
+    #[Groups(["buyer"])]
     #[ORM\Column(length: 180, unique: true)]
     private ?string $email = null;
 
-    #[Groups("buyer")]
+    #[Groups(["buyer"])]
     #[ORM\Column(length: 255)]
     private ?string $company = null;
 
-    #[Groups("buyer")]
+    #[Groups(["buyer"])]
     #[ORM\Column]
     private array $roles = [];
 
