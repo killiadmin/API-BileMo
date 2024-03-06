@@ -13,11 +13,36 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use JMS\Serializer\SerializerInterface;
+use Nelmio\ApiDocBundle\Annotation\Model;
+use Nelmio\ApiDocBundle\Annotation\Security;
+use OpenApi\Annotations as OA;
 
 class ProductController extends AbstractController
 {
     /**
      * Retrieves all products with pagination.
+     *
+     * @OA\Response(
+     *      response=200,
+     *      description="Returns the list of products",
+     *      @OA\JsonContent(
+     *         type="array",
+     *         @OA\Items(ref=@Model(type=Product::class, groups={"product"}))
+     *      )
+     *  )
+     * @OA\Parameter(
+     *      name="page",
+     *      in="query",
+     *      description="The page you want to retrieve",
+     *      @OA\Schema(type="int")
+     *  )
+     * @OA\Parameter(
+     *      name="limit",
+     *      in="query",
+     *      description="The number of elements you want to retrieve",
+     *      @OA\Schema(type="int")
+     *  )
+     * @OA\Tag(name="Products")
      *
      * @param ProductRepository $productRepository The product repository.
      * @param SerializerInterface $serializer The serializer interface.

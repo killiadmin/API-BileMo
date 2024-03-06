@@ -8,6 +8,9 @@ use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Encoder\JWTEncoderInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Exception\JWTDecodeFailureException;
+use Nelmio\ApiDocBundle\Annotation\Model;
+use Nelmio\ApiDocBundle\Annotation\Security;
+use OpenApi\Annotations as OA;
 use Psr\Cache\InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -25,7 +28,27 @@ class BuyerController extends AbstractController
 {
     /**
      * Retrieves a list of all buyers from the system.
-     *
+     * @OA\Get(
+     *   tags={"buyerCache"},
+     *   summary="Get all users owned by the current buyer",
+     *   @OA\Response(response=200, description="All users owned by the current buyer"),
+     *   @OA\Response(response=401, description="JWT unauthorized error"),
+     *   @OA\Response(response=404, description="No user found"),
+     *   @OA\Parameter(
+     *     name="page",
+     *     description="Current page number",
+     *     in="query",
+     *     required=true,
+     *     @OA\Schema(type="integer")
+     *   ),
+     *   @OA\Parameter(
+     *     name="limit",
+     *     in="query",
+     *     description="Limit items per page",
+     *     required=true,
+     *     @OA\Schema(type="integer")
+     *   )
+     * )
      * @param BuyerRepository $buyerRepository The buyer repository.
      * @param SerializerInterface $serializer The serializer.
      * @param Request $request The HTTP request object.
