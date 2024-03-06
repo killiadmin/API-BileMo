@@ -15,7 +15,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Serializer\Exception\ExceptionInterface;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use JMS\Serializer\SerializerInterface;
@@ -141,6 +142,59 @@ class BuyerController extends AbstractController
     }
 
     /**
+     * Updates an existing buyer in the system.
+     *
+     * @param Request $request The HTTP request object.
+     * @param SerializerInterface $serializer The serializer.
+     * @param Buyer $currentBuyer The current buyer object to update.
+     * @param EntityManagerInterface $em The entity manager.
+     * @param UserRepository $userRepository The user repository.
+     * @param ValidatorInterface $validator The validator.
+     * @param TagAwareCacheInterface $cache The cache.
+     *
+     * @return JsonResponse The HTTP response.
+     * @throws ExceptionInterface|InvalidArgumentException If an error occurs during deserialization.
+     */
+    #[Route('/api/buyer/update/{id}', name: "updateBuyer", methods: ['PUT'])]
+/*    #[IsGranted('ROLES_ADMIN', message: 'You do not have sufficient rights to edit a buyer')]*/
+    public function updateBuyer(
+        Request                $request,
+        SerializerInterface    $serializer,
+        Buyer                  $currentBuyer,
+        EntityManagerInterface $em,
+        UserRepository         $userRepository,
+        ValidatorInterface     $validator,
+        TagAwareCacheInterface $cache
+    ): JsonResponse
+    {
+        $newBuyer = $serializer->deserialize($request->getContent(), Buyer::class, 'json');
+        $currentBuyer->setFirstname($newBuyer->getFirstname());
+        $currentBuyer->setLastname($newBuyer->getLastname());
+        $currentBuyer->setEmail($newBuyer->getEmail());
+        $currentBuyer->setAddress($newBuyer->getAddress());
+        $currentBuyer->setPhone($newBuyer->getPhone());
+
+        // We check for errors
+        $errors = $validator->validate($currentBuyer);
+        if ($errors->count() > 0) {
+            return new JsonResponse($serializer->serialize($errors, 'json'), Response::HTTP_BAD_REQUEST, [], true);
+        }
+
+        $content = $request->toArray();
+        $idCompany = $content['company_associated']['id'] ?? -1;
+
+        $currentBuyer->setCompanyAssociated($userRepository->find($idCompany));
+
+        $em->persist($currentBuyer);
+        $em->flush();
+
+        // We clear the cache
+        $cache->invalidateTags(["buyersCache"]);
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
      * Deletes a buyer from the system.
      *
      * @param Buyer $buyer The buyer to delete.
@@ -151,7 +205,7 @@ class BuyerController extends AbstractController
      * @throws InvalidArgumentException
      */
     #[Route('/api/buyer/{id}', name: 'deleteBuyer', methods: ['DELETE'])]
-    #[IsGranted('ROLES_ADMIN', message: 'You do not have sufficient rights to delete a buyer')]
+    /*#[IsGranted('ROLES_ADMIN', message: 'You do not have sufficient rights to delete a buyer')]*/
     public function deleteBuyer
     (
         Buyer                  $buyer,
