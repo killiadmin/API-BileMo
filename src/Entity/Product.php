@@ -6,7 +6,6 @@ use App\Repository\ProductRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Hateoas\Configuration\Annotation as Hateoas;
-use JMS\Serializer\Annotation\Groups;
 
 /**
  * @Hateoas\Relation(
@@ -25,19 +24,15 @@ class Product
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(["product"])]
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
-    #[Groups(["product"])]
     private ?string $libelle = null;
 
     #[ORM\Column(type: Types::TEXT)]
-    #[Groups(["product"])]
     private ?string $description = null;
 
     #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2)]
-    #[Groups(["product"])]
     private ?string $price = null;
 
     public function getId(): ?int

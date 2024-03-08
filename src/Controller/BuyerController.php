@@ -8,9 +8,6 @@ use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Encoder\JWTEncoderInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Exception\JWTDecodeFailureException;
-use Nelmio\ApiDocBundle\Annotation\Model;
-use Nelmio\ApiDocBundle\Annotation\Security;
-use OpenApi\Annotations as OA;
 use Psr\Cache\InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -24,40 +21,43 @@ use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use JMS\Serializer\SerializerInterface;
 use JMS\Serializer\SerializationContext;
+use Nelmio\ApiDocBundle\Annotation\Model;
+use OpenApi\Attributes as OA;
 
 class BuyerController extends AbstractController
 {
     /**
-     * Retrieves a list of all buyers from the system.
-     * @OA\Get(
-     *   tags={"buyerCache"},
-     *   summary="Get all users owned by the current buyer",
-     *   @OA\Response(response=200, description="All users owned by the current buyer"),
-     *   @OA\Response(response=401, description="JWT unauthorized error"),
-     *   @OA\Response(response=404, description="No user found"),
-     *   @OA\Parameter(
-     *     name="page",
-     *     description="Current page number",
-     *     in="query",
-     *     required=true,
-     *     @OA\Schema(type="integer")
-     *   ),
-     *   @OA\Parameter(
-     *     name="limit",
-     *     in="query",
-     *     description="Limit items per page",
-     *     required=true,
-     *     @OA\Schema(type="integer")
-     *   )
-     * )
+     * Retrieves a list of all buyers with pagination.
+     *
      * @param BuyerRepository $buyerRepository The buyer repository.
      * @param SerializerInterface $serializer The serializer.
      * @param Request $request The HTTP request object.
-     * @param TagAwareCacheInterface $cache
+     * @param TagAwareCacheInterface $cache The cache.
      * @return JsonResponse The JSON response containing the list of buyers.
      * @throws InvalidArgumentException
      */
-    #[Route('/api/buyers', name: 'app_buyers')]
+    #[Route('/api/buyers', name: 'app_buyers', methods: ['GET'])]
+    #[OA\Response(
+        response: 200,
+        description: 'Return the list of an buyers associated an company',
+        content: new OA\JsonContent(
+            type: 'array',
+            items: new OA\Items(ref: new Model(type: Buyer::class, groups: ['buyer']))
+        )
+    )]
+    #[OA\Parameter(
+        name: 'page',
+        description: 'The field used to paginate buyers',
+        in: 'query',
+        schema: new OA\Schema(type: 'integer')
+    )]
+    #[OA\Parameter(
+        name: 'limit',
+        description: 'The field used to limit buyers',
+        in: 'query',
+        schema: new OA\Schema(type: 'integer')
+    )]
+    #[OA\Tag(name: 'Buyers')]
     public function getAllBuyers
     (
         BuyerRepository        $buyerRepository,
@@ -94,6 +94,15 @@ class BuyerController extends AbstractController
      * @throws NotFoundHttpException If the buyer is not found.
      */
     #[Route('/api/buyer/{id}', name: 'detailBuyer', methods: ['GET'])]
+    #[OA\Response(
+        response: 200,
+        description: 'Return one buyer with your id',
+        content: new OA\JsonContent(
+            type: 'array',
+            items: new OA\Items(ref: new Model(type: Buyer::class))
+        )
+    )]
+    #[OA\Tag(name: 'Buyers')]
     public function getDetailBuyer
     (
         Buyer               $buyer,
@@ -116,7 +125,8 @@ class BuyerController extends AbstractController
      * @return Response The HTTP response.
      * @throws \JsonException|JWTDecodeFailureException
      */
-    #[Route('/api/buyer/new', name: 'newBuyer', methods: ['POST'])]
+    #[Route('/api/buyer', name: 'newBuyer', methods: ['POST'])]
+    #[OA\Tag(name: 'Buyers')]
     public function addBuyer
     (
         Request                $request,
@@ -178,8 +188,9 @@ class BuyerController extends AbstractController
      * @return JsonResponse The HTTP response.
      * @throws ExceptionInterface|InvalidArgumentException If an error occurs during deserialization.
      */
-    #[Route('/api/buyer/update/{id}', name: "updateBuyer", methods: ['PUT'])]
-/*    #[IsGranted('ROLES_ADMIN', message: 'You do not have sufficient rights to edit a buyer')]*/
+    #[Route('/api/buyer/{id}', name: "updateBuyer", methods: ['PUT'])]
+    #[OA\Tag(name: 'Buyers')]
+    /*#[IsGranted('ROLE_ADMIN', message: 'You do not have sufficient rights to edit a buyer')]*/
     public function updateBuyer(
         Request                $request,
         SerializerInterface    $serializer,
@@ -228,7 +239,8 @@ class BuyerController extends AbstractController
      * @throws InvalidArgumentException
      */
     #[Route('/api/buyer/{id}', name: 'deleteBuyer', methods: ['DELETE'])]
-    /*#[IsGranted('ROLES_ADMIN', message: 'You do not have sufficient rights to delete a buyer')]*/
+    #[OA\Tag(name: 'Buyers')]
+    /*#[IsGranted('ROLE_ADMIN', message: 'You do not have sufficient rights to delete a buyer')]*/
     public function deleteBuyer
     (
         Buyer                  $buyer,

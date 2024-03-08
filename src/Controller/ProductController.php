@@ -14,45 +14,42 @@ use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use JMS\Serializer\SerializerInterface;
 use Nelmio\ApiDocBundle\Annotation\Model;
-use Nelmio\ApiDocBundle\Annotation\Security;
-use OpenApi\Annotations as OA;
+use OpenApi\Attributes as OA;
 
 class ProductController extends AbstractController
 {
     /**
-     * Retrieves all products with pagination.
+     * Returns the list of available products
      *
-     * @OA\Response(
-     *      response=200,
-     *      description="Returns the list of products",
-     *      @OA\JsonContent(
-     *         type="array",
-     *         @OA\Items(ref=@Model(type=Product::class, groups={"product"}))
-     *      )
-     *  )
-     * @OA\Parameter(
-     *      name="page",
-     *      in="query",
-     *      description="The page you want to retrieve",
-     *      @OA\Schema(type="int")
-     *  )
-     * @OA\Parameter(
-     *      name="limit",
-     *      in="query",
-     *      description="The number of elements you want to retrieve",
-     *      @OA\Schema(type="int")
-     *  )
-     * @OA\Tag(name="Products")
-     *
-     * @param ProductRepository $productRepository The product repository.
-     * @param SerializerInterface $serializer The serializer interface.
-     * @param Request $request The request object.
-     * @param TagAwareCacheInterface $cachePool The cache pool.
-     *
-     * @return JsonResponse The JSON response containing all products.
+     * @param ProductRepository $productRepository
+     * @param SerializerInterface $serializer
+     * @param Request $request
+     * @param TagAwareCacheInterface $cachePool
+     * @return JsonResponse
      * @throws InvalidArgumentException
      */
-    #[Route('/api/products', name: 'products')]
+    #[Route('/api/products', methods: ['GET'])]
+    #[OA\Response(
+        response: 200,
+        description: 'Return the list of an products',
+        content: new OA\JsonContent(
+            type: 'array',
+            items: new OA\Items(ref: new Model(type: Product::class))
+        )
+    )]
+    #[OA\Parameter(
+        name: 'page',
+        description: 'The field used to paginate products',
+        in: 'query',
+        schema: new OA\Schema(type: 'integer')
+    )]
+    #[OA\Parameter(
+        name: 'limit',
+        description: 'The field used to limit products',
+        in: 'query',
+        schema: new OA\Schema(type: 'integer')
+    )]
+    #[OA\Tag(name: 'Products')]
     public function getAllProducts
     (
         ProductRepository      $productRepository,
@@ -81,10 +78,18 @@ class ProductController extends AbstractController
      *
      * @param Product $product The product object to retrieve details for.
      * @param SerializerInterface $serializer The serializer used to convert the product details to JSON.
-     *
      * @return JsonResponse The response containing the product details in JSON format.
      */
     #[Route('/api/product/{id}', name: 'detailProduct', methods: ['GET'])]
+    #[OA\Response(
+        response: 200,
+        description: 'Return one product with your id',
+        content: new OA\JsonContent(
+            type: 'array',
+            items: new OA\Items(ref: new Model(type: Product::class))
+        )
+    )]
+    #[OA\Tag(name: 'Products')]
     public function getDetailProduct
     (
         Product             $product,

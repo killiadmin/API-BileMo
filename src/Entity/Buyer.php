@@ -24,7 +24,7 @@ use Hateoas\Configuration\Annotation as Hateoas;
  *           "deleteBuyer",
  *           parameters = { "id" = "expr(object.getId())" },
  *       ),
- *       exclusion = @Hateoas\Exclusion(groups="buyer", excludeIf = "expr(not is_granted('ROLES_ADMIN'))"),
+ *       exclusion = @Hateoas\Exclusion(groups="buyer", excludeIf = "expr(not is_granted('ROLE_ADMIN'))"),
  *  )
  */
 #[ORM\Entity(repositoryClass: BuyerRepository::class)]

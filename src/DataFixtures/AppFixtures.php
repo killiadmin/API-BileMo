@@ -26,7 +26,7 @@ class AppFixtures extends Fixture
         $userAdmin->setCompany('BileMo Administrator');
         $userAdmin->setEmail('support@bilemo.fr');
         $userAdmin->setPassword($this->passwordHasher->hashPassword($userAdmin, 'password'));
-        $userAdmin->setRoles(['ROLES_ADMIN']);
+        $userAdmin->setRoles(['ROLE_ADMIN']);
         $manager->persist($userAdmin);
 
         // Instantiating the Faker generator
@@ -46,7 +46,7 @@ class AppFixtures extends Fixture
             $userClient->setCompany($faker->company);
             $userClient->setEmail($faker->unique()->safeEmail);
             $userClient->setPassword($this->passwordHasher->hashPassword($userClient, "password"));
-            $userClient->setRoles(['ROLES_ADMIN']);
+            $userClient->setRoles(['ROLE_ADMIN']);
             $manager->persist($userClient);
 
             for ($j = 0; $j < 20; $j++) {
