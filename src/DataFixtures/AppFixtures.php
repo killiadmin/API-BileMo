@@ -21,10 +21,18 @@ class AppFixtures extends Fixture
 
     public function load(ObjectManager $manager): void
     {
+        //Adding a Default Admin Account
+        $userAdmin = new User();
+        $userAdmin->setCompany('BileMo Administrator');
+        $userAdmin->setEmail('support@bilemo.fr');
+        $userAdmin->setPassword($this->passwordHasher->hashPassword($userAdmin, 'password'));
+        $userAdmin->setRoles(['ROLE_ADMIN']);
+        $manager->persist($userAdmin);
+
         // Instantiating the Faker generator
         $faker = Factory::create();
-        // Creation of 20 products
-        for ($i = 0; $i < 20; $i++) {
+        // Creation of 100 products
+        for ($i = 0; $i < 100; $i++) {
             $product = new Product();
             $product->setLibelle($faker->word);
             $product->setDescription($faker->paragraph);
@@ -32,23 +40,23 @@ class AppFixtures extends Fixture
             $manager->persist($product);
         }
 
-        // Creation of 20 clients with 10 users associated
-        for ($i=0; $i < 20; $i++) {
-            $user = new User();
-            $user->setCompany($faker->company);
-            $user->setEmail($faker->unique()->safeEmail);
-            $user->setPassword($this->passwordHasher->hashPassword($user, "password"));
-            $user->setRoles(['ROLES_ADMIN']);
-            $manager->persist($user);
+        // Creation of 50 clients with 20 users associated
+        for ($i = 0; $i < 50; $i++) {
+            $userClient = new User();
+            $userClient->setCompany($faker->company);
+            $userClient->setEmail($faker->unique()->safeEmail);
+            $userClient->setPassword($this->passwordHasher->hashPassword($userClient, "password"));
+            $userClient->setRoles(['ROLE_ADMIN']);
+            $manager->persist($userClient);
 
-            for ($j=0; $j < 10; $j++) {
+            for ($j = 0; $j < 20; $j++) {
                 $buyer = new Buyer();
                 $buyer->setFirstname($faker->firstName);
                 $buyer->setLastname($faker->lastName);
                 $buyer->setEmail($faker->unique()->safeEmail);
                 $buyer->setAddress($faker->address());
                 $buyer->setPhone($faker->phoneNumber());
-                $buyer->setCompanyAssociated($user);
+                $buyer->setCompanyAssociated($userClient);
                 $manager->persist($buyer);
             }
         }
