@@ -8,6 +8,7 @@ use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Encoder\JWTEncoderInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Exception\JWTDecodeFailureException;
+use Psr\Cache\InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,29 +16,69 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
-use Symfony\Component\Serializer\SerializerInterface;
+use Symfony\Component\Serializer\Exception\ExceptionInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Symfony\Contracts\Cache\ItemInterface;
+use Symfony\Contracts\Cache\TagAwareCacheInterface;
+use JMS\Serializer\SerializerInterface;
+use JMS\Serializer\SerializationContext;
+use Nelmio\ApiDocBundle\Annotation\Model;
+use OpenApi\Attributes as OA;
 
 class BuyerController extends AbstractController
 {
     /**
-     * Retrieves all products.
+     * Retrieves a list of all buyers with pagination.
      *
-     * @param BuyerRepository $buyerRepository The repository for accessing buyer data.
-     * @param SerializerInterface $serializer The serializer for converting buyer data to JSON.
-     *
-     * @return JsonResponse  The JSON response containing the serialized buyer list.
+     * @param BuyerRepository $buyerRepository The buyer repository.
+     * @param SerializerInterface $serializer The serializer.
+     * @param Request $request The HTTP request object.
+     * @param TagAwareCacheInterface $cache The cache.
+     * @return JsonResponse The JSON response containing the list of buyers.
+     * @throws InvalidArgumentException
      */
-    #[Route('/api/buyers', name: 'app_buyers')]
-    public function getAllProducts
+    #[Route('/api/buyers', name: 'app_buyers', methods: ['GET'])]
+    #[OA\Response(
+        response: 200,
+        description: 'Return the list of an buyers associated an company',
+        content: new OA\JsonContent(
+            type: 'array',
+            items: new OA\Items(ref: new Model(type: Buyer::class, groups: ['buyer']))
+        )
+    )]
+    #[OA\Parameter(
+        name: 'page',
+        description: 'The field used to paginate buyers',
+        in: 'query',
+        schema: new OA\Schema(type: 'integer')
+    )]
+    #[OA\Parameter(
+        name: 'limit',
+        description: 'The field used to limit buyers',
+        in: 'query',
+        schema: new OA\Schema(type: 'integer')
+    )]
+    #[OA\Tag(name: 'Buyers')]
+    public function getAllBuyers
     (
-        BuyerRepository     $buyerRepository,
-        SerializerInterface $serializer
+        BuyerRepository        $buyerRepository,
+        SerializerInterface    $serializer,
+        Request                $request,
+        TagAwareCacheInterface $cache
     ): JsonResponse
     {
-        $buyerList = $buyerRepository->findAll();
-        $context = ['groups' => ['buyer']];
-        $jsonBuyerList = $serializer->serialize($buyerList, 'json', $context);
+        $page = $request->get('page', 1);
+        $limit = $request->get('limit', 3);
+
+        $idCache = "getAllBuyers-" . $page . "-" . $limit;
+
+        $jsonBuyerList = $cache->get($idCache, function (ItemInterface $item) use ($buyerRepository, $page, $limit, $serializer) {
+            $item->tag('buyersCache');
+            $item->expiresAfter(3600);
+            $buyerList = $buyerRepository->findAllWithPagination($page, $limit);
+            $context = SerializationContext::create()->setGroups(['buyer']);
+            return $serializer->serialize($buyerList, 'json', $context);
+        });
 
         return new JsonResponse($jsonBuyerList, Response::HTTP_OK, [], true);
     }
@@ -53,14 +94,23 @@ class BuyerController extends AbstractController
      *
      * @throws NotFoundHttpException If the buyer is not found.
      */
-    #[Route('/api/buyer/{id}', name: 'app_buyer', methods: ['GET'])]
+    #[Route('/api/buyer/{id}', name: 'detailBuyer', methods: ['GET'])]
+    #[OA\Response(
+        response: 200,
+        description: 'Return one buyer with your id',
+        content: new OA\JsonContent(
+            type: 'array',
+            items: new OA\Items(ref: new Model(type: Buyer::class))
+        )
+    )]
+    #[OA\Tag(name: 'Buyers')]
     public function getDetailBuyer
     (
         Buyer               $buyer,
         SerializerInterface $serializer
     ): JsonResponse
     {
-        $context = ['groups' => ['buyer']];
+        $context = SerializationContext::create()->setGroups(['buyer']);
         $jsonBuyer = $serializer->serialize($buyer, 'json', $context);
         return new JsonResponse($jsonBuyer, Response::HTTP_OK, [], true);
     }
@@ -76,7 +126,8 @@ class BuyerController extends AbstractController
      * @return Response The HTTP response.
      * @throws \JsonException|JWTDecodeFailureException
      */
-    #[Route('/api/buyer/new', name: 'newBuyer', methods: ['POST'])]
+    #[Route('/api/buyer', name: 'newBuyer', methods: ['POST'])]
+    #[OA\Tag(name: 'Buyers')]
     public function addBuyer
     (
         Request                $request,
@@ -127,5 +178,85 @@ class BuyerController extends AbstractController
         $location = $urlGenerator->generate('buyer', ['id' => $buyer->getId()],  UrlGeneratorInterface::ABSOLUTE_URL);
 
         return new JsonResponse(['status' => 'Buyer created', 'location' => $location], Response::HTTP_CREATED);
+    }
+
+    /**
+     * Updates an existing buyer in the system.
+     *
+     * @param Request $request The HTTP request object.
+     * @param SerializerInterface $serializer The serializer.
+     * @param Buyer $currentBuyer The current buyer object to update.
+     * @param EntityManagerInterface $em The entity manager.
+     * @param UserRepository $userRepository The user repository.
+     * @param ValidatorInterface $validator The validator.
+     * @param TagAwareCacheInterface $cache The cache.
+     *
+     * @return JsonResponse The HTTP response.
+     * @throws ExceptionInterface|InvalidArgumentException If an error occurs during deserialization.
+     */
+    #[Route('/api/buyer/{id}', name: "updateBuyer", methods: ['PUT'])]
+    #[OA\Tag(name: 'Buyers')]
+    /*#[IsGranted('ROLE_ADMIN', message: 'You do not have sufficient rights to edit a buyer')]*/
+    public function updateBuyer(
+        Request                $request,
+        SerializerInterface    $serializer,
+        Buyer                  $currentBuyer,
+        EntityManagerInterface $em,
+        UserRepository         $userRepository,
+        ValidatorInterface     $validator,
+        TagAwareCacheInterface $cache
+    ): JsonResponse
+    {
+        $newBuyer = $serializer->deserialize($request->getContent(), Buyer::class, 'json');
+        $currentBuyer->setFirstname($newBuyer->getFirstname());
+        $currentBuyer->setLastname($newBuyer->getLastname());
+        $currentBuyer->setEmail($newBuyer->getEmail());
+        $currentBuyer->setAddress($newBuyer->getAddress());
+        $currentBuyer->setPhone($newBuyer->getPhone());
+
+        // We check for errors
+        $errors = $validator->validate($currentBuyer);
+        if ($errors->count() > 0) {
+            return new JsonResponse($serializer->serialize($errors, 'json'), Response::HTTP_BAD_REQUEST, [], true);
+        }
+
+        $content = $request->toArray();
+        $idCompany = $content['company_associated']['id'] ?? -1;
+
+        $currentBuyer->setCompanyAssociated($userRepository->find($idCompany));
+
+        $em->persist($currentBuyer);
+        $em->flush();
+
+        // We clear the cache
+        $cache->invalidateTags(["buyersCache"]);
+
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Deletes a buyer from the system.
+     *
+     * @param Buyer $buyer The buyer to delete.
+     * @param EntityManagerInterface $em The entity manager.
+     * @param TagAwareCacheInterface $cachePool The cache pool.
+     *
+     * @return JsonResponse The JSON response.
+     * @throws InvalidArgumentException
+     */
+    #[Route('/api/buyer/{id}', name: 'deleteBuyer', methods: ['DELETE'])]
+    #[OA\Tag(name: 'Buyers')]
+    /*#[IsGranted('ROLE_ADMIN', message: 'You do not have sufficient rights to delete a buyer')]*/
+    public function deleteBuyer
+    (
+        Buyer                  $buyer,
+        EntityManagerInterface $em,
+        TagAwareCacheInterface $cachePool
+    ): JsonResponse
+    {
+        $cachePool->invalidateTags(['buyersCache']);
+        $em->remove($buyer);
+        $em->flush();
+        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
     }
 }
