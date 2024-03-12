@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Serializer\Exception\ExceptionInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Cache\ItemInterface;
@@ -71,7 +72,8 @@ class BuyerController extends AbstractController
 
         $idCache = "getAllBuyers-" . $page . "-" . $limit;
 
-        $jsonBuyerList = $cache->get($idCache, function (ItemInterface $item) use ($buyerRepository, $page, $limit, $serializer) {
+        $jsonBuyerList = $cache->get(
+            $idCache, function (ItemInterface $item) use ($buyerRepository, $page, $limit, $serializer) {
             $item->tag('buyersCache');
             $item->expiresAfter(3600);
             $buyerList = $buyerRepository->findAllWithPagination($page, $limit);
@@ -81,7 +83,6 @@ class BuyerController extends AbstractController
 
         return new JsonResponse($jsonBuyerList, Response::HTTP_OK, [], true);
     }
-
 
     /**
      * Retrieves the details of a specific buyer.
@@ -190,7 +191,7 @@ class BuyerController extends AbstractController
      */
     #[Route('/api/buyer/{id}', name: "updateBuyer", methods: ['PUT'])]
     #[OA\Tag(name: 'Buyers')]
-    /*#[IsGranted('ROLE_ADMIN', message: 'You do not have sufficient rights to edit a buyer')]*/
+    #[IsGranted('ROLE_ADMIN', message: 'You do not have sufficient rights to edit a buyer')]
     public function updateBuyer(
         Request                $request,
         SerializerInterface    $serializer,
@@ -240,7 +241,7 @@ class BuyerController extends AbstractController
      */
     #[Route('/api/buyer/{id}', name: 'deleteBuyer', methods: ['DELETE'])]
     #[OA\Tag(name: 'Buyers')]
-    /*#[IsGranted('ROLE_ADMIN', message: 'You do not have sufficient rights to delete a buyer')]*/
+    #[IsGranted('ROLE_ADMIN', message: 'You do not have sufficient rights to delete a buyer')]
     public function deleteBuyer
     (
         Buyer                  $buyer,
