@@ -8,7 +8,7 @@ applications from other web platforms can perform operations.
 
 ## Required
 
-    * PHP 8.3
+    * PHP >=8.1
     * Composer   
     * Symfony CLI
     * Docker
@@ -22,4 +22,46 @@ mkdir P7_API-BileMo_KF
 cd P7_API-BileMo_KF
 
 mkdir database
+```
+
+## Clone the project API-BileMo
+
+```bash
+git clone https://github.com/killiadmin/API-BileMo.git
+```
+
+## Launch the development environment
+
+```bash
+cd API-BileMo
+```
+
+```bash
+composer update 
+```
+
+```bash
+docker compose up -d
+```
+
+```bash
+symfony serve -d
+```
+
+## Launch the migrations
+
+```bash
+symfony console d:m:m
+```
+
+## Add fakes datas
+
+```bash
+symfony console d:f:l
+```
+
+## Open the API documentation and view the available routes
+
+```bash
+path: ^/api/doc
 ```
