@@ -16,6 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Exception\ExceptionInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Cache\ItemInterface;
@@ -127,24 +128,36 @@ class BuyerController extends AbstractController
      * @throws \JsonException|JWTDecodeFailureException
      */
     #[Route('/api/buyer', name: 'newBuyer', methods: ['POST'])]
+    #[OA\RequestBody(
+        content: new OA\MediaType(
+            mediaType: "application/json",
+            schema: new OA\Schema(
+                ref: new Model(type: Buyer::class, groups: ["createBuyer"])
+            )
+        )
+    )]
+    #[OA\Response(
+        response: 400,
+        description: 'There was a problem creating the buyer'
+    )]
+    #[OA\Response(
+        response: 401,
+        description: 'You are not allowed to create a buyer'
+    )]
     #[OA\Tag(name: 'Buyers')]
     public function addBuyer
     (
         Request                $request,
         EntityManagerInterface $entityManager,
         UserRepository         $userRepository,
-        JWTEncoderInterface    $jwtEncoder
+        JWTEncoderInterface    $jwtEncoder,
+        SerializerInterface    $serializer,
+        ValidatorInterface     $validator,
+        UrlGeneratorInterface  $urlGenerator
     ): Response
     {
         $data = $request->getContent();
-        $dataArray = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
-
-        $buyer = new Buyer();
-        $buyer->setFirstname($dataArray['firstname']);
-        $buyer->setLastname($dataArray['lastname']);
-        $buyer->setEmail($dataArray['email']);
-        $buyer->setAddress($dataArray['address']);
-        $buyer->setPhone($dataArray['phone']);
+        $buyer = $serializer->deserialize($data, Buyer::class, 'json');
 
         // Extracting the token from Authentication header
         $token = explode(' ', $request->headers->get('Authorization'))[1];
@@ -158,7 +171,7 @@ class BuyerController extends AbstractController
         // Decoding the token
         $decodedToken = $jwtEncoder->decode($token);
 
-        // Extracting company mail from token
+        // Extracting company email from token
         $companyName = $decodedToken['username'];
 
         $company = $userRepository->findOneBy(['email' => $companyName]);
@@ -169,10 +182,19 @@ class BuyerController extends AbstractController
             return new JsonResponse(['error' => 'Company not found'], Response::HTTP_NOT_FOUND);
         }
 
+        // Validate the buyer
+        $errors = $validator->validate($buyer);
+
+        if ($errors->count() > 0) {
+            return new JsonResponse($serializer->serialize($errors, 'json'), Response::HTTP_BAD_REQUEST, [], true);
+        }
+
         $entityManager->persist($buyer);
         $entityManager->flush();
 
-        return new JsonResponse(['status' => 'Buyer created'], Response::HTTP_CREATED);
+        $location = $urlGenerator->generate('detailBuyer', ['id' => $buyer->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
+
+        return new JsonResponse(['message' => 'Buyer created', 'location' => $location], Response::HTTP_CREATED);
     }
 
     /**
