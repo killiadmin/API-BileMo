@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Exception\ExceptionInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
@@ -23,6 +23,7 @@ use Symfony\Contracts\Cache\TagAwareCacheInterface;
 use JMS\Serializer\SerializerInterface;
 use JMS\Serializer\SerializationContext;
 use Nelmio\ApiDocBundle\Annotation\Model;
+
 use OpenApi\Attributes as OA;
 
 class BuyerController extends AbstractController
@@ -127,6 +128,22 @@ class BuyerController extends AbstractController
      * @throws \JsonException|JWTDecodeFailureException
      */
     #[Route('/api/buyer', name: 'newBuyer', methods: ['POST'])]
+    #[OA\RequestBody(
+        content: new OA\MediaType(
+            mediaType: "application/json",
+            schema: new OA\Schema(
+                ref: new Model(type: Buyer::class, groups: ["createBuyer"])
+            )
+        )
+    )]
+    #[OA\Response(
+        response: 400,
+        description: 'There was a problem creating the buyer'
+    )]
+    #[OA\Response(
+        response: 401,
+        description: 'You are not allowed to create a buyer'
+    )]
     #[OA\Tag(name: 'Buyers')]
     public function addBuyer
     (
@@ -165,7 +182,7 @@ class BuyerController extends AbstractController
             return new JsonResponse(['error' => 'Company not found'], Response::HTTP_NOT_FOUND);
         }
 
-        // validate the buyer
+        // Validate the buyer
         $errors = $validator->validate($buyer);
 
         if ($errors->count() > 0) {
@@ -175,9 +192,9 @@ class BuyerController extends AbstractController
         $entityManager->persist($buyer);
         $entityManager->flush();
 
-        $location = $urlGenerator->generate('buyer', ['id' => $buyer->getId()],  UrlGeneratorInterface::ABSOLUTE_URL);
+        $location = $urlGenerator->generate('detailBuyer', ['id' => $buyer->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
 
-        return new JsonResponse(['status' => 'Buyer created', 'location' => $location], Response::HTTP_CREATED);
+        return new JsonResponse(['message' => 'Buyer created', 'location' => $location], Response::HTTP_CREATED);
     }
 
     /**

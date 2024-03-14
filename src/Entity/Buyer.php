@@ -36,7 +36,7 @@ class Buyer
     #[ORM\Column]
     private ?int $id = null;
 
-    #[Groups(["buyer"])]
+    #[Groups(["buyer", "createBuyer"])]
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: "The firstname must be entered")]
     #[Assert\Length(
@@ -47,7 +47,7 @@ class Buyer
     )]
     private ?string $firstname = null;
 
-    #[Groups(["buyer"])]
+    #[Groups(["buyer", "createBuyer"])]
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: "The lastname must be entered")]
     #[Assert\Length(
@@ -58,7 +58,7 @@ class Buyer
     )]
     private ?string $lastname = null;
 
-    #[Groups(["buyer"])]
+    #[Groups(["buyer", "createBuyer"])]
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: "The email must be entered")]
     #[Assert\Length(
@@ -69,7 +69,7 @@ class Buyer
     )]
     private ?string $email = null;
 
-    #[Groups(["buyer"])]
+    #[Groups(["buyer", "createBuyer"])]
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: "The address must be entered")]
     #[Assert\Length(
@@ -80,7 +80,7 @@ class Buyer
     )]
     private ?string $address = null;
 
-    #[Groups(["buyer"])]
+    #[Groups(["buyer", "createBuyer"])]
     #[ORM\Column(length: 255)]
     #[Assert\NotBlank(message: "The phone number must be entered")]
     #[Assert\Length(
