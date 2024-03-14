@@ -63,7 +63,8 @@ class ProductController extends AbstractController
 
         $idCache = "getAllProducts-" . $page . "-" . $limit;
 
-        $jsonProductsList = $cachePool->get($idCache, function (ItemInterface $item) use ($productRepository, $page, $limit, $serializer) {
+        $jsonProductsList = $cachePool->get(
+            $idCache, function (ItemInterface $item) use ($productRepository, $page, $limit, $serializer) {
             $item->tag('productsCache');
             $item->expiresAfter(3600);
             $productsList = $productRepository->findAllWithPagination($page, $limit);

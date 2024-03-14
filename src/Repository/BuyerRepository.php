@@ -28,7 +28,14 @@ class BuyerRepository extends ServiceEntityRepository
      * @method Buyer|null find($id, $lockMode = null, $lockVersion = null)
      * @method Buyer|null findOneBy(array $criteria, array $orderBy = null)
      * @method Buyer[]    findAll()
-     * @method Buyer[]    findBy(array $criteria, array $orderBy = null, $limit = null, $offset = null)
+     * @method Buyer[]    findBy(array $criteria, array $orderBy = null, int $limit = null, $offset = null)
+     *
+     * Retrieves a list of buyers with pagination.
+     *
+     * @param int $page The current page number.
+     * @param int $limit The maximum number of results per page.
+     *
+     * @return array The list of buyers on the specified page.
      */
     public function findAllWithPagination(int $page, int $limit): array
     {
