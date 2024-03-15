@@ -5,14 +5,15 @@ namespace App\Controller;
 use App\Entity\Buyer;
 use App\Repository\BuyerRepository;
 use App\Repository\UserRepository;
+use App\Service\TokenExtractorService;
 use Doctrine\ORM\EntityManagerInterface;
-use Lexik\Bundle\JWTAuthenticationBundle\Encoder\JWTEncoderInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Exception\JWTDecodeFailureException;
 use Psr\Cache\InvalidArgumentException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -28,6 +29,13 @@ use OpenApi\Attributes as OA;
 
 class BuyerController extends AbstractController
 {
+    private TokenExtractorService $tokenExtractorService;
+
+    public function __construct(TokenExtractorService $tokenExtractorService)
+    {
+        $this->tokenExtractorService = $tokenExtractorService;
+    }
+
     /**
      * Retrieves a list of all buyers with pagination.
      *
@@ -122,7 +130,6 @@ class BuyerController extends AbstractController
      * @param Request $request The HTTP request object.
      * @param EntityManagerInterface $entityManager The entity manager.
      * @param UserRepository $userRepository The user repository.
-     * @param JWTEncoderInterface $jwtEncoder The JWT encoder.
      *
      * @return Response The HTTP response.
      * @throws \JsonException|JWTDecodeFailureException
@@ -142,7 +149,11 @@ class BuyerController extends AbstractController
     )]
     #[OA\Response(
         response: 401,
-        description: 'You are not allowed to create a buyer'
+        description: 'You are not authorized to perform this action'
+    )]
+    #[OA\Response(
+        response: 404,
+        description: 'Page not found'
     )]
     #[OA\Tag(name: 'Buyers')]
     public function addBuyer
@@ -150,7 +161,6 @@ class BuyerController extends AbstractController
         Request                $request,
         EntityManagerInterface $entityManager,
         UserRepository         $userRepository,
-        JWTEncoderInterface    $jwtEncoder,
         SerializerInterface    $serializer,
         ValidatorInterface     $validator,
         UrlGeneratorInterface  $urlGenerator
@@ -160,16 +170,22 @@ class BuyerController extends AbstractController
         $buyer = $serializer->deserialize($data, Buyer::class, 'json');
 
         // Extracting the token from Authentication header
-        $token = explode(' ', $request->headers->get('Authorization'))[1];
+        $token = $this->tokenExtractorService->extractToken($request);
 
-        if (empty($token)) {
+        if (null === $token) {
+            return new JsonResponse([
+                'error' => 'You are not authorized to perform this action'
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        // Decoding the token
+        $decodedToken = $this->tokenExtractorService->decodeToken($token);
+
+        if (null === $decodedToken) {
             return new JsonResponse([
                 'error' => 'There was a problem creating the buyer'
             ], Response::HTTP_NOT_FOUND);
         }
-
-        // Decoding the token
-        $decodedToken = $jwtEncoder->decode($token);
 
         // Extracting company email from token
         $companyName = $decodedToken['username'];
@@ -194,7 +210,11 @@ class BuyerController extends AbstractController
 
         $location = $urlGenerator->generate('detailBuyer', ['id' => $buyer->getId()], UrlGeneratorInterface::ABSOLUTE_URL);
 
-        return new JsonResponse(['message' => 'Buyer created', 'location' => $location], Response::HTTP_CREATED);
+        // Serialize the buyer object to JSON
+        $context = SerializationContext::create()->setGroups(['buyer']);
+        $buyerJson = $serializer->serialize($buyer, 'json', $context);
+
+        return new JsonResponse(['Buyer created' => json_decode($buyerJson, false, 512, JSON_THROW_ON_ERROR), 'location' => $location], Response::HTTP_CREATED);
     }
 
     /**
@@ -248,7 +268,11 @@ class BuyerController extends AbstractController
         // We clear the cache
         $cache->invalidateTags(["buyersCache"]);
 
-        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+        // Serialize the buyer object to JSON
+        $context = SerializationContext::create()->setGroups(['buyer']);
+        $currentBuyerJson = $serializer->serialize($currentBuyer, 'json', $context);
+
+        return new JsonResponse(['Buyer modified' => $currentBuyerJson], Response::HTTP_OK);
     }
 
     /**
@@ -262,18 +286,30 @@ class BuyerController extends AbstractController
      * @throws InvalidArgumentException
      */
     #[Route('/api/buyer/{id}', name: 'deleteBuyer', methods: ['DELETE'])]
+    #[OA\Response(response: 204, description: 'The buyer has been deleted')]
+    #[OA\Response(response: 401, description: 'You are not authorized to perform this action')]
+    #[OA\Response(response: 404, description: 'Page not found')]
     #[OA\Tag(name: 'Buyers')]
-    #[IsGranted('ROLE_ADMIN', message: 'You do not have sufficient rights to delete a buyer')]
     public function deleteBuyer
     (
-        Buyer                  $buyer,
+        Buyer $buyer,
         EntityManagerInterface $em,
-        TagAwareCacheInterface $cachePool
-    ): JsonResponse
-    {
+        TagAwareCacheInterface $cachePool,
+        Request $request
+    ) : JsonResponse {
+        // Extracting the token from Authentication header
+        $token = $this->tokenExtractorService->extractToken($request);
+
+        if (null === $token) {
+            return new JsonResponse([
+                'error' => 'You are not authorized to perform this action'
+            ], Response::HTTP_UNAUTHORIZED);
+        }
+
         $cachePool->invalidateTags(['buyersCache']);
         $em->remove($buyer);
         $em->flush();
-        return new JsonResponse(null, Response::HTTP_NO_CONTENT);
+
+        return new JsonResponse([], Response::HTTP_NO_CONTENT);
     }
 }
