@@ -13,7 +13,6 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -278,25 +277,31 @@ class BuyerController extends AbstractController
     /**
      * Deletes a buyer from the system.
      *
-     * @param Buyer $buyer The buyer to delete.
+     * @param Buyer $buyer The buyer entity to delete.
+     * @param UserRepository $userRepository The user repository.
      * @param EntityManagerInterface $em The entity manager.
      * @param TagAwareCacheInterface $cachePool The cache pool.
+     * @param Request $request The HTTP request object.
      *
-     * @return JsonResponse The JSON response.
-     * @throws InvalidArgumentException
+     * @return Response The HTTP response.
+     * @throws JWTDecodeFailureException|InvalidArgumentException
      */
     #[Route('/api/buyer/{id}', name: 'deleteBuyer', methods: ['DELETE'])]
     #[OA\Response(response: 204, description: 'The buyer has been deleted')]
+    #[OA\Response(response: 400, description: 'There was a problem delete the buyer')]
     #[OA\Response(response: 401, description: 'You are not authorized to perform this action')]
+    #[OA\Response(response: 403, description: 'You are not allowed to remove this buyer')]
     #[OA\Response(response: 404, description: 'Page not found')]
     #[OA\Tag(name: 'Buyers')]
     public function deleteBuyer
     (
-        Buyer $buyer,
+        Buyer                  $buyer,
+        UserRepository         $userRepository,
         EntityManagerInterface $em,
         TagAwareCacheInterface $cachePool,
-        Request $request
-    ) : JsonResponse {
+        Request                $request
+    ): Response
+    {
         // Extracting the token from Authentication header
         $token = $this->tokenExtractorService->extractToken($request);
 
@@ -304,6 +309,24 @@ class BuyerController extends AbstractController
             return new JsonResponse([
                 'error' => 'You are not authorized to perform this action'
             ], Response::HTTP_UNAUTHORIZED);
+        }
+
+        // Decoding the token
+        $decodedToken = $this->tokenExtractorService->decodeToken($token);
+        if (null === $decodedToken) {
+            return new JsonResponse([
+                'error' => 'There was a problem delete the buyer'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Extracting company email from token
+        $company = $userRepository->findOneBy(['email' => $decodedToken['username']]);
+        $buyerCompany = $buyer->getCompanyAssociated();
+
+        if ($company && $buyerCompany && $buyerCompany->getEmail() !== $company->getEmail()) {
+            return new JsonResponse([
+                'error' => 'You are not allowed to remove this buyer'
+            ], Response::HTTP_FORBIDDEN);
         }
 
         $cachePool->invalidateTags(['buyersCache']);
