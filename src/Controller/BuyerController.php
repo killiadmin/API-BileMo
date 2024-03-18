@@ -213,11 +213,14 @@ class BuyerController extends AbstractController
         $context = SerializationContext::create()->setGroups(['buyer']);
         $buyerJson = $serializer->serialize($buyer, 'json', $context);
 
-        return new JsonResponse(['Buyer created' => json_decode($buyerJson, false, 512, JSON_THROW_ON_ERROR), 'location' => $location], Response::HTTP_CREATED);
+        return new JsonResponse([
+            'Buyer created' => json_decode($buyerJson, false, 512, JSON_THROW_ON_ERROR),
+            'location' => $location
+        ], Response::HTTP_CREATED);
     }
 
     /**
-     * Updates an existing buyer in the system.
+     * Updates an existing buyer in the system associated with a company
      *
      * @param Request $request The HTTP request object.
      * @param SerializerInterface $serializer The serializer.
@@ -227,12 +230,25 @@ class BuyerController extends AbstractController
      * @param ValidatorInterface $validator The validator.
      * @param TagAwareCacheInterface $cache The cache.
      *
-     * @return JsonResponse The HTTP response.
+     * @return Response The HTTP response.
      * @throws ExceptionInterface|InvalidArgumentException If an error occurs during deserialization.
+     * @throws JWTDecodeFailureException|\JsonException
      */
     #[Route('/api/buyer/{id}', name: "updateBuyer", methods: ['PUT'])]
+    #[OA\RequestBody(
+        content: new OA\MediaType(
+            mediaType: "application/json",
+            schema: new OA\Schema(
+                ref: new Model(type: Buyer::class, groups: ["createBuyer"])
+            )
+        )
+    )]
+    #[OA\Response(response: 200, description: 'The buyer has been modified')]
+    #[OA\Response(response: 400, description: 'There was a problem modified the buyer')]
+    #[OA\Response(response: 401, description: 'You are not authorized to perform this action')]
+    #[OA\Response(response: 403, description: 'You are not authorized to interact with this buyer')]
+    #[OA\Response(response: 404, description: 'Page not found')]
     #[OA\Tag(name: 'Buyers')]
-    #[IsGranted('ROLE_ADMIN', message: 'You do not have sufficient rights to edit a buyer')]
     public function updateBuyer(
         Request                $request,
         SerializerInterface    $serializer,
@@ -240,9 +256,16 @@ class BuyerController extends AbstractController
         EntityManagerInterface $em,
         UserRepository         $userRepository,
         ValidatorInterface     $validator,
-        TagAwareCacheInterface $cache
-    ): JsonResponse
+        TagAwareCacheInterface $cache,
+        UrlGeneratorInterface  $urlGenerator
+    ): Response
     {
+        $authorization = $this->authorizeAction($request, $userRepository, $currentBuyer, true);
+
+        if ($authorization instanceof Response) {
+            return $authorization;
+        }
+
         $newBuyer = $serializer->deserialize($request->getContent(), Buyer::class, 'json');
         $currentBuyer->setFirstname($newBuyer->getFirstname());
         $currentBuyer->setLastname($newBuyer->getLastname());
@@ -253,16 +276,17 @@ class BuyerController extends AbstractController
         // We check for errors
         $errors = $validator->validate($currentBuyer);
         if ($errors->count() > 0) {
-            return new JsonResponse($serializer->serialize($errors, 'json'), Response::HTTP_BAD_REQUEST, [], true);
+            return new JsonResponse($serializer->serialize($errors, 'json'),
+                Response::HTTP_BAD_REQUEST, [], true);
         }
 
-        $content = $request->toArray();
-        $idCompany = $content['company_associated']['id'] ?? -1;
-
+        $idCompany = json_decode($authorization, true, 512, JSON_THROW_ON_ERROR);
         $currentBuyer->setCompanyAssociated($userRepository->find($idCompany));
 
         $em->persist($currentBuyer);
         $em->flush();
+
+        $location = $urlGenerator->generate('updateBuyer', ['id' => $idCompany], UrlGeneratorInterface::ABSOLUTE_URL);
 
         // We clear the cache
         $cache->invalidateTags(["buyersCache"]);
@@ -270,8 +294,12 @@ class BuyerController extends AbstractController
         // Serialize the buyer object to JSON
         $context = SerializationContext::create()->setGroups(['buyer']);
         $currentBuyerJson = $serializer->serialize($currentBuyer, 'json', $context);
+        $currentBuyerArray = json_decode($currentBuyerJson, true, 512, JSON_THROW_ON_ERROR);
 
-        return new JsonResponse(['Buyer modified' => $currentBuyerJson], Response::HTTP_OK);
+        return new JsonResponse([
+            'Buyer modified' => $currentBuyerArray,
+            'location' => $location
+        ], Response::HTTP_OK);
     }
 
     /**
@@ -284,13 +312,13 @@ class BuyerController extends AbstractController
      * @param Request $request The HTTP request object.
      *
      * @return Response The HTTP response.
-     * @throws JWTDecodeFailureException|InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     #[Route('/api/buyer/{id}', name: 'deleteBuyer', methods: ['DELETE'])]
     #[OA\Response(response: 204, description: 'The buyer has been deleted')]
-    #[OA\Response(response: 400, description: 'There was a problem delete the buyer')]
+    #[OA\Response(response: 400, description: 'There was a problem with the request')]
     #[OA\Response(response: 401, description: 'You are not authorized to perform this action')]
-    #[OA\Response(response: 403, description: 'You are not allowed to remove this buyer')]
+    #[OA\Response(response: 403, description: 'You are not authorized to interact with this buyer')]
     #[OA\Response(response: 404, description: 'Page not found')]
     #[OA\Tag(name: 'Buyers')]
     public function deleteBuyer
@@ -302,7 +330,36 @@ class BuyerController extends AbstractController
         Request                $request
     ): Response
     {
-        // Extracting the token from Authentication header
+        $authorization = $this->authorizeAction($request, $userRepository, $buyer);
+
+        if ($authorization instanceof Response) {
+            return $authorization;
+        }
+
+        $cachePool->invalidateTags(['buyersCache']);
+        $em->remove($buyer);
+        $em->flush();
+
+        return new JsonResponse([], Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Authorizes the action based on the token and user company.
+     *
+     * @param Request $request The HTTP request object.
+     * @param UserRepository $userRepository The user repository.
+     * @param Buyer $buyer The buyer entity.
+     *
+     * @return int|JsonResponse|null The HTTP response if the action is not authorized, otherwise null.
+     * @throws \JsonException|JWTDecodeFailureException
+     */
+    private function authorizeAction(
+        Request        $request,
+        UserRepository $userRepository,
+        Buyer          $buyer,
+        $returnCompany = false
+    ): JsonResponse|int|null
+    {
         $token = $this->tokenExtractorService->extractToken($request);
 
         if (null === $token) {
@@ -315,7 +372,7 @@ class BuyerController extends AbstractController
         $decodedToken = $this->tokenExtractorService->decodeToken($token);
         if (null === $decodedToken) {
             return new JsonResponse([
-                'error' => 'There was a problem delete the buyer'
+                'error' => 'There was a problem with the request'
             ], Response::HTTP_BAD_REQUEST);
         }
 
@@ -325,14 +382,15 @@ class BuyerController extends AbstractController
 
         if ($company && $buyerCompany && $buyerCompany->getEmail() !== $company->getEmail()) {
             return new JsonResponse([
-                'error' => 'You are not allowed to remove this buyer'
+                'error' => 'You are not authorized to interact with this buyer'
             ], Response::HTTP_FORBIDDEN);
         }
 
-        $cachePool->invalidateTags(['buyersCache']);
-        $em->remove($buyer);
-        $em->flush();
+        // Return company if parameter returnCompany is true
+        if ($returnCompany && $company) {
+            return $company->getId();
+        }
 
-        return new JsonResponse([], Response::HTTP_NO_CONTENT);
+        return null;
     }
 }
