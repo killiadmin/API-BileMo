@@ -213,11 +213,14 @@ class BuyerController extends AbstractController
         $context = SerializationContext::create()->setGroups(['buyer']);
         $buyerJson = $serializer->serialize($buyer, 'json', $context);
 
-        return new JsonResponse(['Buyer created' => json_decode($buyerJson, false, 512, JSON_THROW_ON_ERROR), 'location' => $location], Response::HTTP_CREATED);
+        return new JsonResponse([
+            'Buyer created' => json_decode($buyerJson, false, 512, JSON_THROW_ON_ERROR),
+            'location' => $location
+        ], Response::HTTP_CREATED);
     }
 
     /**
-     * Updates an existing buyer in the system.
+     * Updates an existing buyer in the system associated with a company
      *
      * @param Request $request The HTTP request object.
      * @param SerializerInterface $serializer The serializer.
@@ -253,10 +256,11 @@ class BuyerController extends AbstractController
         EntityManagerInterface $em,
         UserRepository         $userRepository,
         ValidatorInterface     $validator,
-        TagAwareCacheInterface $cache
+        TagAwareCacheInterface $cache,
+        UrlGeneratorInterface  $urlGenerator
     ): Response
     {
-        $authorization = $this->authorizeAction($request, $userRepository, $currentBuyer);
+        $authorization = $this->authorizeAction($request, $userRepository, $currentBuyer, true);
 
         if ($authorization instanceof Response) {
             return $authorization;
@@ -276,13 +280,13 @@ class BuyerController extends AbstractController
                 Response::HTTP_BAD_REQUEST, [], true);
         }
 
-        $content = $request->toArray();
-        $idCompany = $content['company_associated']['id'] ?? -1;
-
+        $idCompany = json_decode($authorization, true, 512, JSON_THROW_ON_ERROR);
         $currentBuyer->setCompanyAssociated($userRepository->find($idCompany));
 
         $em->persist($currentBuyer);
         $em->flush();
+
+        $location = $urlGenerator->generate('updateBuyer', ['id' => $idCompany], UrlGeneratorInterface::ABSOLUTE_URL);
 
         // We clear the cache
         $cache->invalidateTags(["buyersCache"]);
@@ -290,8 +294,12 @@ class BuyerController extends AbstractController
         // Serialize the buyer object to JSON
         $context = SerializationContext::create()->setGroups(['buyer']);
         $currentBuyerJson = $serializer->serialize($currentBuyer, 'json', $context);
+        $currentBuyerArray = json_decode($currentBuyerJson, true, 512, JSON_THROW_ON_ERROR);
 
-        return new JsonResponse(['Buyer modified' => $currentBuyerJson], Response::HTTP_OK);
+        return new JsonResponse([
+            'Buyer modified' => $currentBuyerArray,
+            'location' => $location
+        ], Response::HTTP_OK);
     }
 
     /**
@@ -342,10 +350,15 @@ class BuyerController extends AbstractController
      * @param UserRepository $userRepository The user repository.
      * @param Buyer $buyer The buyer entity.
      *
-     * @return Response|null The HTTP response if the action is not authorized, otherwise null.
+     * @return int|JsonResponse|null The HTTP response if the action is not authorized, otherwise null.
      * @throws \JsonException|JWTDecodeFailureException
      */
-    private function authorizeAction(Request $request, UserRepository $userRepository, Buyer $buyer): ?Response
+    private function authorizeAction(
+        Request        $request,
+        UserRepository $userRepository,
+        Buyer          $buyer,
+        $returnCompany = false
+    ): JsonResponse|int|null
     {
         $token = $this->tokenExtractorService->extractToken($request);
 
@@ -371,6 +384,11 @@ class BuyerController extends AbstractController
             return new JsonResponse([
                 'error' => 'You are not authorized to interact with this buyer'
             ], Response::HTTP_FORBIDDEN);
+        }
+
+        // Return company if parameter returnCompany is true
+        if ($returnCompany && $company) {
+            return $company->getId();
         }
 
         return null;
