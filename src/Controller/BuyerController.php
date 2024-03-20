@@ -169,6 +169,7 @@ class BuyerController extends AbstractController
             )
         )
     )]
+    #[OA\Response(response: 201, description: 'Buyer created')]
     #[OA\Response(response: 400, description: 'There was a problem creating the buyer')]
     #[OA\Response(response: 401, description: 'You are not authorized to perform this action')]
     #[OA\Response(response: 404, description: 'Page not found')]
@@ -185,29 +186,16 @@ class BuyerController extends AbstractController
     {
         $data = $request->getContent();
         $buyer = $serializer->deserialize($data, Buyer::class, 'json');
+        
+        $authorization = $this->authorizeAction($request, $userRepository, $buyer, true);
 
-        // Extracting the token from Authentication header
-        $token = $this->tokenExtractorService->extractToken($request);
-
-        if (null === $token) {
-            return new JsonResponse([
-                'error' => 'You are not authorized to perform this action'
-            ], Response::HTTP_UNAUTHORIZED);
+        if ($authorization instanceof Response) {
+            return $authorization;
         }
 
-        // Decoding the token
-        $decodedToken = $this->tokenExtractorService->decodeToken($token);
-
-        if (null === $decodedToken) {
-            return new JsonResponse([
-                'error' => 'There was a problem creating the buyer'
-            ], Response::HTTP_NOT_FOUND);
-        }
-
-        // Extracting company email from token
-        $companyName = $decodedToken['username'];
-
-        $company = $userRepository->findOneBy(['email' => $companyName]);
+        $idCompany = json_decode($authorization, true, 512, JSON_THROW_ON_ERROR);
+        
+        $company = $userRepository->findOneBy(['id' => $idCompany]);
 
         if ($company !== null) {
             $buyer->setCompanyAssociated($company);
