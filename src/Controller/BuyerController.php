@@ -44,6 +44,7 @@ class BuyerController extends AbstractController
      * @param TagAwareCacheInterface $cache The cache.
      * @return JsonResponse The JSON response containing the list of buyers.
      * @throws InvalidArgumentException
+     * @throws \JsonException|JWTDecodeFailureException
      */
     #[Route('/api/buyers', name: 'app_buyers', methods: ['GET'])]
     #[OA\Response(
@@ -54,6 +55,10 @@ class BuyerController extends AbstractController
             items: new OA\Items(ref: new Model(type: Buyer::class, groups: ['buyer']))
         )
     )]
+    #[OA\Response(response: 400, description: 'There was a problem with the request')]
+    #[OA\Response(response: 401, description: 'You are not authorized to perform this action')]
+    #[OA\Response(response: 403, description: 'You are not authorized to interact with this buyer')]
+    #[OA\Response(response: 404, description: 'Page not found')]
     #[OA\Parameter(
         name: 'page',
         description: 'The field used to paginate buyers',
@@ -69,22 +74,31 @@ class BuyerController extends AbstractController
     #[OA\Tag(name: 'Buyers')]
     public function getAllBuyers
     (
+        UserRepository         $userRepository,
         BuyerRepository        $buyerRepository,
         SerializerInterface    $serializer,
         Request                $request,
         TagAwareCacheInterface $cache
     ): JsonResponse
     {
+        $authorization = $this->authorizeAction($request, $userRepository, null,true);
+
+        if ($authorization instanceof Response) {
+            return $authorization;
+        }
+
+        $idCompany = json_decode($authorization, true, 512, JSON_THROW_ON_ERROR);
+        
         $page = $request->get('page', 1);
         $limit = $request->get('limit', 3);
 
         $idCache = "getAllBuyers-" . $page . "-" . $limit;
 
         $jsonBuyerList = $cache->get(
-            $idCache, function (ItemInterface $item) use ($buyerRepository, $page, $limit, $serializer) {
+            $idCache, function (ItemInterface $item) use ($idCompany, $buyerRepository, $page, $limit, $serializer) {
             $item->tag('buyersCache');
             $item->expiresAfter(3600);
-            $buyerList = $buyerRepository->findAllWithPagination($page, $limit);
+            $buyerList = $buyerRepository->findAllWithPagination($page, $limit, $idCompany);
             $context = SerializationContext::create()->setGroups(['buyer']);
             return $serializer->serialize($buyerList, 'json', $context);
         });
@@ -101,6 +115,7 @@ class BuyerController extends AbstractController
      * @return JsonResponse  The JSON response containing the serialized buyer.
      *
      * @throws NotFoundHttpException If the buyer is not found.
+     * @throws JWTDecodeFailureException
      */
     #[Route('/api/buyer/{id}', name: 'detailBuyer', methods: ['GET'])]
     #[OA\Response(
@@ -111,13 +126,25 @@ class BuyerController extends AbstractController
             items: new OA\Items(ref: new Model(type: Buyer::class))
         )
     )]
+    #[OA\Response(response: 400, description: 'There was a problem with the request')]
+    #[OA\Response(response: 401, description: 'You are not authorized to perform this action')]
+    #[OA\Response(response: 403, description: 'You are not authorized to interact with this buyer')]
+    #[OA\Response(response: 404, description: 'Page not found')]
     #[OA\Tag(name: 'Buyers')]
     public function getDetailBuyer
     (
+        Request             $request,
+        UserRepository      $userRepository,
         Buyer               $buyer,
         SerializerInterface $serializer
     ): JsonResponse
     {
+        $authorization = $this->authorizeAction($request, $userRepository, $buyer,true);
+
+        if ($authorization instanceof Response) {
+            return $authorization;
+        }
+        
         $context = SerializationContext::create()->setGroups(['buyer']);
         $jsonBuyer = $serializer->serialize($buyer, 'json', $context);
         return new JsonResponse($jsonBuyer, Response::HTTP_OK, [], true);
@@ -291,7 +318,7 @@ class BuyerController extends AbstractController
      * @param Request $request The HTTP request object.
      *
      * @return Response The HTTP response.
-     * @throws InvalidArgumentException
+     * @throws InvalidArgumentException|JWTDecodeFailureException
      */
     #[Route('/api/buyer/{id}', name: 'deleteBuyer', methods: ['DELETE'])]
     #[OA\Response(response: 204, description: 'The buyer has been deleted')]
@@ -327,16 +354,16 @@ class BuyerController extends AbstractController
      *
      * @param Request $request The HTTP request object.
      * @param UserRepository $userRepository The user repository.
-     * @param Buyer $buyer The buyer entity.
-     *
+     * @param Buyer|null $buyer The buyer entity.
+     * @param bool $returnCompany
      * @return int|JsonResponse|null The HTTP response if the action is not authorized, otherwise null.
-     * @throws \JsonException|JWTDecodeFailureException
+     * @throws JWTDecodeFailureException
      */
     private function authorizeAction(
         Request        $request,
         UserRepository $userRepository,
-        Buyer          $buyer,
-        $returnCompany = false
+        Buyer          $buyer = null,
+        bool $returnCompany = false
     ): JsonResponse|int|null
     {
         $token = $this->tokenExtractorService->extractToken($request);
@@ -357,7 +384,7 @@ class BuyerController extends AbstractController
 
         // Extracting company email from token
         $company = $userRepository->findOneBy(['email' => $decodedToken['username']]);
-        $buyerCompany = $buyer->getCompanyAssociated();
+        $buyerCompany = $buyer?->getCompanyAssociated();
 
         if ($company && $buyerCompany && $buyerCompany->getEmail() !== $company->getEmail()) {
             return new JsonResponse([
