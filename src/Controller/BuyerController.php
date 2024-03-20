@@ -15,7 +15,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Exception\ExceptionInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
@@ -46,7 +45,7 @@ class BuyerController extends AbstractController
      * @throws InvalidArgumentException
      * @throws \JsonException|JWTDecodeFailureException
      */
-    #[Route('/api/buyers', name: 'app_buyers', methods: ['GET'])]
+    #[Route('/api/users/buyers', name: 'allBuyers', methods: ['GET'])]
     #[OA\Response(
         response: 200,
         description: 'Return the list of an buyers associated an company',
@@ -117,7 +116,7 @@ class BuyerController extends AbstractController
      * @throws NotFoundHttpException If the buyer is not found.
      * @throws JWTDecodeFailureException
      */
-    #[Route('/api/buyer/{id}', name: 'detailBuyer', methods: ['GET'])]
+    #[Route('/api/users/buyers/{id}', name: 'detailBuyer', methods: ['GET'])]
     #[OA\Response(
         response: 200,
         description: 'Return one buyer with your id',
@@ -160,7 +159,7 @@ class BuyerController extends AbstractController
      * @return Response The HTTP response.
      * @throws \JsonException|JWTDecodeFailureException
      */
-    #[Route('/api/buyer', name: 'newBuyer', methods: ['POST'])]
+    #[Route('/api/users/buyers', name: 'newBuyer', methods: ['POST'])]
     #[OA\RequestBody(
         content: new OA\MediaType(
             mediaType: "application/json",
@@ -240,7 +239,7 @@ class BuyerController extends AbstractController
      * @throws ExceptionInterface|InvalidArgumentException If an error occurs during deserialization.
      * @throws JWTDecodeFailureException|\JsonException
      */
-    #[Route('/api/buyer/{id}', name: "updateBuyer", methods: ['PUT'])]
+    #[Route('/api/users/buyers/{id}', name: "updateBuyer", methods: ['PUT'])]
     #[OA\RequestBody(
         content: new OA\MediaType(
             mediaType: "application/json",
@@ -320,7 +319,7 @@ class BuyerController extends AbstractController
      * @return Response The HTTP response.
      * @throws InvalidArgumentException|JWTDecodeFailureException
      */
-    #[Route('/api/buyer/{id}', name: 'deleteBuyer', methods: ['DELETE'])]
+    #[Route('/api/users/buyers/{id}', name: 'deleteBuyer', methods: ['DELETE'])]
     #[OA\Response(response: 204, description: 'The buyer has been deleted')]
     #[OA\Response(response: 400, description: 'There was a problem with the request')]
     #[OA\Response(response: 401, description: 'You are not authorized to perform this action')]
