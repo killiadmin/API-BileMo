@@ -28,7 +28,7 @@ class ProductController extends AbstractController
      * @return JsonResponse
      * @throws InvalidArgumentException
      */
-    #[Route('/api/products', methods: ['GET'])]
+    #[Route('/api/products', name: 'allProducts', methods: ['GET'])]
     #[OA\Response(
         response: 200,
         description: 'Return the list of an products',
@@ -81,7 +81,7 @@ class ProductController extends AbstractController
      * @param SerializerInterface $serializer The serializer used to convert the product details to JSON.
      * @return JsonResponse The response containing the product details in JSON format.
      */
-    #[Route('/api/product/{id}', name: 'detailProduct', methods: ['GET'])]
+    #[Route('/api/products/{id}', name: 'detailProduct', methods: ['GET'])]
     #[OA\Response(
         response: 200,
         description: 'Return one product with your id',
