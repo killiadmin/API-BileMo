@@ -37,9 +37,11 @@ class BuyerRepository extends ServiceEntityRepository
      *
      * @return array The list of buyers on the specified page.
      */
-    public function findAllWithPagination(int $page, int $limit): array
+    public function findAllWithPagination(int $page, int $limit, int $idCompany): array
     {
         $qb = $this->createQueryBuilder('b')
+            ->where('b.company_associated = :idCompany')
+            ->setParameter('idCompany', $idCompany)
             ->setFirstResult(($page - 1) * $limit)
             ->setMaxResults($limit);
 
