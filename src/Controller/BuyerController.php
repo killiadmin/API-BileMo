@@ -199,7 +199,7 @@ class BuyerController extends AbstractController
         if ($company !== null) {
             $buyer->setCompanyAssociated($company);
         } else {
-            return new JsonResponse(['error' => 'Company not found'], Response::HTTP_NOT_FOUND);
+            return new JsonResponse(['error' => 'Page not found'], Response::HTTP_NOT_FOUND);
         }
 
         // Validate the buyer
@@ -385,7 +385,13 @@ class BuyerController extends AbstractController
         $company = $userRepository->findOneBy(['email' => $decodedToken['username']]);
         $buyerCompany = $buyer?->getCompanyAssociated();
 
-        if ($company && $buyerCompany && $buyerCompany->getEmail() !== $company->getEmail()) {
+        if (null === $company) {
+            return new JsonResponse([
+                'error' => 'Page not found'
+            ], Response::HTTP_NOT_FOUND);
+        }
+
+        if ($buyerCompany && $buyerCompany->getEmail() !== $company->getEmail()) {
             return new JsonResponse([
                 'error' => 'You are not authorized to interact with this buyer'
             ], Response::HTTP_FORBIDDEN);
