@@ -31,6 +31,10 @@ class AppFixtures extends Fixture
 
         // Instantiating the Faker generator
         $faker = Factory::create();
+
+        // Creation of 50 buyers with admin account
+        $this->generationDatasBuyers($manager, $faker, $userAdmin);
+
         // Creation of 100 products
         for ($i = 0; $i < 100; $i++) {
             $product = new Product();
@@ -49,18 +53,32 @@ class AppFixtures extends Fixture
             $userClient->setRoles(['ROLE_ADMIN']);
             $manager->persist($userClient);
 
-            for ($j = 0; $j < 20; $j++) {
-                $buyer = new Buyer();
-                $buyer->setFirstname($faker->firstName);
-                $buyer->setLastname($faker->lastName);
-                $buyer->setEmail($faker->unique()->safeEmail);
-                $buyer->setAddress($faker->address());
-                $buyer->setPhone($faker->phoneNumber());
-                $buyer->setCompanyAssociated($userClient);
-                $manager->persist($buyer);
-            }
+            // Creation of 50 buyers
+            $this->generationDatasBuyers($manager, $faker, $userClient);
         }
 
         $manager->flush();
+    }
+
+    /**
+     * Generates dummy buyer data and persists it to the database.
+     *
+     * @param $manager
+     * @param $fakerData
+     * @param $userType
+     * @return void
+     */
+    private function generationDatasBuyers($manager, $fakerData, $userType): void
+    {
+        for ($j = 0; $j < 20; $j++) {
+            $buyer = new Buyer();
+            $buyer->setFirstname($fakerData->firstName);
+            $buyer->setLastname($fakerData->lastName);
+            $buyer->setEmail($fakerData->unique()->safeEmail);
+            $buyer->setAddress($fakerData->address());
+            $buyer->setPhone($fakerData->phoneNumber());
+            $buyer->setCompanyAssociated($userType);
+            $manager->persist($buyer);
+        }
     }
 }
