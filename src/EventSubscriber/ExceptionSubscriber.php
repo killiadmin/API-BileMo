@@ -5,32 +5,41 @@ namespace App\EventSubscriber;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 
 class ExceptionSubscriber implements EventSubscriberInterface
 {
     /**
-     * Handles kernel exceptions and sets the appropriate response based on the exception type.
+     * Handles the kernel exception event.
      *
-     * @param ExceptionEvent $event The exception event.
+     * This method is triggered when an exception is thrown during the handling of a request.
+     * It checks the route of the request and the type of the exception, and then sets the appropriate
+     * response for each case.
+     *
+     * @param ExceptionEvent $event The exception event object.
      * @return void
      */
     public function onKernelException(ExceptionEvent $event): void
     {
         $exception = $event->getThrowable();
+        $request = $event->getRequest();
+        $route = $request->attributes->get('_route');
 
-        if ($exception instanceof HttpException && $exception->getStatusCode() === 404) {
+        if (in_array($route, ['detailBuyer', 'detailProduct', 'updateBuyer', 'deleteBuyer'])) {
+            if ($exception instanceof NotFoundHttpException) {
+                $data = [
+                    'status' => $exception->getStatusCode(),
+                    'message' => $exception->getMessage()
+                ];
+                $event->setResponse(new JsonResponse($data));
+            }
+        } elseif ($exception instanceof NotFoundHttpException) {
             $event->setResponse(new RedirectResponse('/api/doc'));
-        } elseif ($exception instanceof HttpException) {
-            $data = [
-                'status' => $exception->getStatusCode(),
-                'message' => $exception->getMessage()
-            ];
-            $event->setResponse(new JsonResponse($data));
-
         } else {
             $data = [
                 'status' => 500,
