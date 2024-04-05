@@ -30,22 +30,16 @@ class ExceptionSubscriber implements EventSubscriberInterface
         $request = $event->getRequest();
         $route = $request->attributes->get('_route');
 
-        if (in_array($route, ['detailBuyer', 'detailProduct', 'updateBuyer', 'deleteBuyer'])) {
-            if ($exception instanceof NotFoundHttpException) {
-                $data = [
-                    'status' => $exception->getStatusCode(),
-                    'message' => $exception->getMessage()
-                ];
-                $event->setResponse(new JsonResponse($data));
+        if ($exception instanceof NotFoundHttpException) {
+            if (in_array($route, ['detailBuyer', 'detailProduct', 'updateBuyer', 'deleteBuyer'])) {
+                $event->setResponse(
+                    $this->createErrorResponse(404, 'The resource you are requesting does not exist' )
+                );
+            } else {
+                $event->setResponse(new RedirectResponse('/api/doc'));
             }
-        } elseif ($exception instanceof NotFoundHttpException) {
-            $event->setResponse(new RedirectResponse('/api/doc'));
         } else {
-            $data = [
-                'status' => 500,
-                'message' => $exception->getMessage()
-            ];
-            $event->setResponse(new JsonResponse($data));
+            $event->setResponse($this->createErrorResponse(500, 'A server problem has occurred'));
         }
     }
 
@@ -64,5 +58,26 @@ class ExceptionSubscriber implements EventSubscriberInterface
         return [
             KernelEvents::EXCEPTION => 'onKernelException',
         ];
+    }
+
+    /**
+     * Creates a JSON response with an error message.
+     *
+     * This method takes an integer status code and a string message, and creates a JSON response
+     * containing these values. The status code represents the HTTP status of the response, while the
+     * message provides a human-readable error message.
+     *
+     * @param int $status The HTTP status code for the response.
+     * @param string $message The error message to be included in the response.
+     *
+     * @return JsonResponse A JSON response containing the status code and error message.
+     */
+    private function createErrorResponse(int $status, string $message): JsonResponse
+    {
+        $data = [
+            'status' => $status,
+            'message' => $message
+        ];
+        return new JsonResponse($data);
     }
 }
