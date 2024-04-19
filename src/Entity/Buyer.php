@@ -67,6 +67,9 @@ class Buyer
         minMessage: "The email must be at least {{ limit }} characters",
         maxMessage: "The email cannot be more than {{ limit }} characters"
     )]
+    #[Assert\Email(
+        message: "The email '{{ value }}' is not a valid email."
+    )]
     private ?string $email = null;
 
     #[Groups(["buyer", "createBuyer"])]
