@@ -48,6 +48,12 @@ docker compose up -d
 symfony serve -d
 ```
 
+## Generate Json web keys
+
+```bash
+symfony console lexik:jwt:generate-keypair
+```
+
 ## Launch the migrations
 
 ```bash
